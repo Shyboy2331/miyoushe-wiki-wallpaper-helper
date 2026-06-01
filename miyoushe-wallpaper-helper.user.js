@@ -38,7 +38,7 @@
         #mys-helper-btn {
             position: fixed !important;
             right: 20px !important;
-            bottom: 120px !important;
+            bottom: 88px !important;
             z-index: 999999 !important;
             width: 50px !important;
             height: 50px !important;
@@ -75,7 +75,7 @@
         #mys-helper-panel {
             position: fixed !important;
             right: 20px !important;
-            bottom: 180px !important;
+            bottom: 148px !important;
             z-index: 999999 !important;
             width: 330px !important;
             background: #1c1c1e !important;
@@ -282,7 +282,11 @@
             </div>
             <div class="mys-input-group">
                 <span class="mys-label">过滤最小宽度限制 (px, 0表示不限制)</span>
-                <input type="number" id="mys-input-minwidth" class="mys-input" value="1000" min="0" step="100">
+                <input type="number" id="mys-input-minwidth" class="mys-input" value="1100" min="0" step="100">
+            </div>
+            <div class="mys-input-group">
+                <span class="mys-label">过滤最小高度限制 (px, 0表示不限制)</span>
+                <input type="number" id="mys-input-minheight" class="mys-input" value="1100" min="0" step="100">
             </div>
             <div class="mys-status" id="mys-status-text">状态：等待操作...</div>
             <button class="mys-btn" id="mys-btn-extract">🚀 开始提取（自动滚动）</button>
@@ -313,6 +317,7 @@
     const inputSeries = document.getElementById('mys-input-series');
     const seriesInputWrapper = document.getElementById('mys-series-input-wrapper');
     const inputMinWidth = document.getElementById('mys-input-minwidth');
+    const inputMinHeight = document.getElementById('mys-input-minheight');
     const namingRules = document.getElementsByName('mys-naming-rule');
 
     // 读取并设置自动提取的偏好
@@ -418,8 +423,8 @@
     }
 
     // 批量异步过滤分辨率
-    async function filterItemsByResolution(items, minWidth) {
-        if (minWidth <= 0) return items;
+    async function filterItemsByResolution(items, minWidth, minHeight) {
+        if (minWidth <= 0 && minHeight <= 0) return items;
 
         const filtered = [];
         let checkedCount = 0;
@@ -434,7 +439,10 @@
             }));
 
             results.forEach(res => {
-                if (res.dims.width >= minWidth) {
+                const widthOk = minWidth <= 0 || res.dims.width >= minWidth;
+                const heightOk = minHeight <= 0 || res.dims.height >= minHeight;
+                const isSquareSmall = res.dims.width === res.dims.height && res.dims.width < 2000;
+                if (widthOk && heightOk && !isSquareSmall) {
                     filtered.push(res.item);
                 }
             });
@@ -519,9 +527,10 @@
         const rawItems = performExtraction();
 
         const minWidth = parseInt(inputMinWidth.value) || 0;
-        updateStatus(`正在筛选分辨率 (目标宽度 >= ${minWidth}px)...`);
+        const minHeight = parseInt(inputMinHeight.value) || 0;
+        updateStatus(`正在筛选分辨率 (目标宽度 >= ${minWidth}px, 目标高度 >= ${minHeight}px)...`);
 
-        extractedItems = await filterItemsByResolution(rawItems, minWidth);
+        extractedItems = await filterItemsByResolution(rawItems, minWidth, minHeight);
 
         isScrolling = false;
         btnExtract.disabled = false;
@@ -537,7 +546,10 @@
                 return `[${item.title || "未知标题"}] -> ${item.url}`;
             }).join('\n');
         } else {
-            updateStatus(`未检测到大于 ${minWidth}px 的壁纸，请微调过滤规则后重试。`, true);
+            const filterDesc = [];
+            if (minWidth > 0) filterDesc.push(`宽度 >= ${minWidth}px`);
+            if (minHeight > 0) filterDesc.push(`高度 >= ${minHeight}px`);
+            updateStatus(`未检测到满足条件(${filterDesc.join(', ')})的壁纸，请微调过滤规则后重试。`, true);
             btnCopy.disabled = true;
             btnDownload.disabled = true;
             linksPreview.style.display = 'none';
